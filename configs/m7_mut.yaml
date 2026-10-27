@@ -4,6 +4,7 @@ model:
   heads: [t1, t2, gru]
   gru_detach_shared: true
 loss:
+  lambda_kd: 0.0               # no KD to the GRU in this milestone
   lambda_mut: 0.3
 train:
   select_head: gru

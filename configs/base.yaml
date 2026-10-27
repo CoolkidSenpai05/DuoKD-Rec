@@ -28,6 +28,7 @@ model:
   score_against: own           # own | id  (id: every head scores against Emb_ID, ablation)
   gru_detach_shared: true
   ens_weights: [0.5, 0.5]
+  learned_ens_weights: false   # true: w = softmax(a), a trained by CE(z_ens) only
   hidden: 64
   dropout: 0.2                 # embedding / attention / FFN dropout (not fixed by spec)
   transformer:
@@ -74,3 +75,7 @@ loss:
   lambda_mut: 0.3              # max value; linear warm-up from 0
   mut_start_epoch: 5
   mut_warmup_epochs: 5
+  lambda_kd: 1.0               # max value; linear warm-up from 0
+  kd_start_epoch: 5
+  kd_warmup_epochs: 5
+  kd_teacher: ens              # ens | t1 | t2  (teacher distilled into the GRU)

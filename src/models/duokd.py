@@ -34,6 +34,9 @@ class DuoKD(nn.Module):
         ie_cfg = {"hidden": d, "dropout": mcfg["dropout"], **cfg["item_encoder"]}
         self.item_encoder = ItemEncoder(text_feat, img_feat, ie_cfg, cfg["features"]["missing"])
         self.ens_w = mcfg.get("ens_weights", [0.5, 0.5])
+        # learned ensemble weights w = softmax(a); `a` is trained only by CE(z_ens) (§3.4c)
+        self.learned_ens = bool(mcfg.get("learned_ens_weights", False))
+        self.ens_logits = nn.Parameter(torch.zeros(2)) if self.learned_ens else None
         self.towers = nn.ModuleDict()
         for h in self.heads:
             if h in TEACHERS:
@@ -61,14 +64,28 @@ class DuoKD(nn.Module):
                 u = self.towers[h](x, mask)[:, -1]           # [B, D] (left padding -> last = real)
             out[f"u_{h}"] = u
             out[f"z_{h}"] = u @ self._table(tables, h)[1:].T  # [B, N]
+        if all(t in self.heads for t in TEACHERS):
+            out["z_ens"] = self.ensemble(out["z_t1"], out["z_t2"])
+            out["learned_ens"] = self.learned_ens
         return out
+
+    def ens_weights(self) -> torch.Tensor:
+        """[2] weights (w1, w2) of the teacher ensemble."""
+        if self.learned_ens:
+            return torch.softmax(self.ens_logits, dim=0)
+        return torch.tensor(self.ens_w, dtype=torch.float32, device=self.item_encoder.nonpad.device)
+
+    def ensemble(self, z1: torch.Tensor, z2: torch.Tensor) -> torch.Tensor:
+        """z_ens = w1·z1.detach() + w2·z2.detach()  [B, N]. Gradient only reaches learned w."""
+        w = self.ens_weights()
+        return w[0] * z1.detach() + w[1] * z2.detach()
 
     @torch.no_grad()
     def predict(self, seq: torch.Tensor) -> dict[str, torch.Tensor]:
         out = self.forward(seq)
         res = {h: out[f"z_{h}"] for h in self.heads}
         if all(t in self.heads for t in TEACHERS):
-            res["ens"] = self.ens_w[0] * res["t1"] + self.ens_w[1] * res["t2"]
+            res["ens"] = self.ensemble(res["t1"], res["t2"])
         return res
 
     @torch.no_grad()
@@ -82,6 +99,8 @@ class DuoKD(nn.Module):
             logs[f"gate_entropy_{v}"] = float(ent)
             for k, p in enumerate(P.tolist()):
                 logs[f"load_{v}{k}"] = p
+        if self.learned_ens:
+            logs["ens_w1"] = float(self.ens_weights()[0])
         if all(t in self.heads for t in TEACHERS):
             logs["disagree_t1_t2"] = float((out["z_t1"].argmax(1) != out["z_t2"].argmax(1)).float().mean())
         return logs

@@ -1,0 +1,11 @@
+# M8: full DuoKD-Rec = m7_mut + ensemble KD -> GRU (λ_kd max 1.0, warm-up epochs 5..10).
+base: configs/base.yaml
+model:
+  heads: [t1, t2, gru]
+  gru_detach_shared: true
+loss:
+  lambda_mut: 0.3
+  lambda_kd: 1.0
+  kd_teacher: ens
+train:
+  select_head: gru

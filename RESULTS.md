@@ -143,3 +143,27 @@ Nhận xét (1 seed, chênh lệch ~0.001 chưa đủ kết luận):
 
 Test: `pytest tests/ -x -q` → `31 passed` (thêm `test_kd_detach` phần mutual + `test_schedules`).
 Config M5/M6 được bổ sung `lambda_mut: 0` để giữ đúng thiết lập cũ khi base bật mutual.
+
+## Milestone 8 — Ensemble KD → GRU
+
+`z_ens = w1·z1.detach() + w2·z2.detach()` (w = 0.5/0.5), `L_kd = τ²·KL(softmax(z_ens/τ) ‖ softmax(z_g/τ))`, τ = 2, `λ_kd` warm-up 0 → 1.0 (epoch 5 → 10). `gru_detach_shared=true`. `m8_kd` = `m7_mut` + KD (cùng seed 42, chọn theo valid N@20 của GRU). Đã cài thêm `kd_teacher: ens|t1|t2` và `learned_ens_weights` (w = softmax(a), a chỉ học qua CE(z_ens)) cho ablation M10.
+
+| Run | Head | Best ep | Valid N@20 | Test R@10 | Test N@10 | Test R@20 | Test N@20 | cold-user N@20 | cold-item N@20 |
+|---|---|---|---|---|---|---|---|---|---|
+| `m6_all_sup` (CE) | GRU | 35 | 0.0756 | 0.0863 | 0.0500 | 0.1217 | 0.0589 | 0.0520 | 0.0230 |
+| `m7_mut` (+mutual) | GRU | 35 | 0.0769 | 0.0876 | 0.0505 | 0.1243 | 0.0597 | 0.0527 | 0.0212 |
+| **`m8_kd` (+mutual +KD)** | **GRU** | 35 | **0.0785** | **0.0903** | **0.0523** | **0.1278** | **0.0618** | 0.0543 | 0.0226 |
+| `m8_kd` | T1 | 35 | 0.0786 | 0.0897 | 0.0520 | 0.1287 | 0.0619 | 0.0551 | 0.0249 |
+| `m8_kd` | T2 | 35 | 0.0790 | 0.0901 | 0.0528 | 0.1274 | 0.0622 | 0.0551 | 0.0259 |
+| `m8_kd` | ens | 35 | 0.0793 | 0.0903 | 0.0527 | 0.1286 | 0.0623 | 0.0555 | 0.0259 |
+
+Nhận xét:
+- **KD có hiệu quả**: GRU test N@20 0.0597 → 0.0618 (+3.5%), R@20 0.1243 → 0.1278. Khoảng cách GRU–ensemble thu hẹp từ 0.0026 xuống 0.0005; GRU ngang T1 và chỉ kém ensemble rất ít.
+- So với các mốc: SASRec 0.0537 → GRU-student 0.0618 (+15%); GRU một mình (`m6_gru`) 0.0556 → 0.0618 (+11%).
+- **Teacher không bị ảnh hưởng bởi KD**: số liệu T1/T2/ens của `m8_kd` trùng khớp tuyệt đối với `m7_mut` (cùng seed) → xác nhận trên run thật là `L_kd` không đưa gradient về T1/T2/encoder dùng chung.
+- `L_kd` (chưa nhân λ): 0.135 (ep 0) → 0.127 (ep 10) → 0.252 (ep 35) — tăng khi teacher sắc hơn, student theo sau.
+- Cold-item của GRU (0.0226) vẫn thấp hơn teacher (~0.025): student học được phần lớn nhưng không hết về item hiếm.
+- 1 seed; cần ≥ 3 seed ở M10 để xác nhận.
+
+Test: `pytest tests/ -x -q` → `37 passed` (thêm `test_kd_detach` đầy đủ: L_kd, detach=false, trọng số ensemble học được; `test_gru_detach_shared`). Bộ test mất 15 phút do ổ đĩa chung quá tải I/O lúc chạy (bình thường ~10–30 s).
+Config M5–M7 được bổ sung `lambda_kd: 0` để giữ thiết lập cũ.

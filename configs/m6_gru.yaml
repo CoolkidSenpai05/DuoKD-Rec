@@ -8,4 +8,5 @@ model:
 train:
   select_head: gru
 loss:
+  lambda_kd: 0.0               # no KD to the GRU in this milestone
   lambda_mut: 0.0             # no distillation in this milestone

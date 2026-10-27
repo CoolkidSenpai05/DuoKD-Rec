@@ -64,7 +64,10 @@ def mutual_kd_loss(z1: torch.Tensor, z2: torch.Tensor, tau: float) -> tuple[torc
 
 
 class DuoKDLoss(nn.Module):
-    """L = L_sup + λ_mut(t)·L_mut + λ_bal·(L_bal_t + L_bal_v)   [KD term added in M8].
+    """L = L_sup + λ_mut(t)·L_mut + λ_kd(t)·L_kd + λ_bal·(L_bal_t + L_bal_v)  [+ CE(z_ens) if learned w].
+
+    L_kd = τ²·KL(softmax(z_teacher/τ) ‖ softmax(z_gru/τ)), z_teacher = z_ens (default), z_t1 or z_t2,
+    always fully detached. z_ens = w1·z1.detach() + w2·z2.detach() is computed by the model.
 
     Note: with gru_detach_shared=true the GRU gives no gradient to the MoEs; L_bal still applies.
 
@@ -83,9 +86,16 @@ class DuoKDLoss(nn.Module):
         self.tau = lc["tau"]
         self.mut_cfg = (lc["lambda_mut"], lc["mut_start_epoch"], lc["mut_warmup_epochs"])
         self.use_mut = "t1" in self.heads and "t2" in self.heads and lc["lambda_mut"] > 0
+        self.kd_cfg = (lc["lambda_kd"], lc["kd_start_epoch"], lc["kd_warmup_epochs"])
+        self.kd_teacher = lc.get("kd_teacher", "ens")
+        assert self.kd_teacher in ("ens", "t1", "t2")
+        need = ["t1", "t2"] if self.kd_teacher == "ens" else [self.kd_teacher]
+        self.use_kd = "gru" in self.heads and all(t in self.heads for t in need) and lc["lambda_kd"] > 0
+        self.has_ens = "t1" in self.heads and "t2" in self.heads
 
     def lambdas(self, epoch: int) -> dict[str, float]:
-        return {"lambda_mut": linear_warmup(epoch, *self.mut_cfg) if self.use_mut else 0.0}
+        return {"lambda_mut": linear_warmup(epoch, *self.mut_cfg) if self.use_mut else 0.0,
+                "lambda_kd": linear_warmup(epoch, *self.kd_cfg) if self.use_kd else 0.0}
 
     def forward(self, out: dict, batch: dict, epoch: int) -> tuple[torch.Tensor, dict[str, float]]:
         y = batch["target"]
@@ -111,4 +121,15 @@ class DuoKDLoss(nn.Module):
             logs["L_mut"] = l_mut.item()
             if lam["lambda_mut"] > 0:
                 loss = loss + lam["lambda_mut"] * l_mut
+        if self.has_ens and "z_ens" in out:
+            if out.get("learned_ens", False):  # trains only the ensemble weights a
+                ce_ens = ce_loss(out["z_ens"], y)
+                logs["L_sup_ens"] = ce_ens.item()
+                loss = loss + ce_ens
+        if self.use_kd:
+            z_t = out["z_ens"] if self.kd_teacher == "ens" else out[f"z_{self.kd_teacher}"]
+            l_kd = kl_teacher_student(z_t, out["z_gru"], self.tau)  # teacher detached inside
+            logs["L_kd"] = l_kd.item()
+            if lam["lambda_kd"] > 0:
+                loss = loss + lam["lambda_kd"] * l_kd
         return loss, logs
