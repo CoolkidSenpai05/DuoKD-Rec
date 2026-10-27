@@ -1,0 +1,5 @@
+# §10 modality ablation: ID only (text and image disabled). Architecture unchanged.
+base: configs/m8_kd.yaml
+item_encoder:
+  use_text: false
+  use_image: false

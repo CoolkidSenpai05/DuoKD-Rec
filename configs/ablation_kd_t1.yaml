@@ -1,0 +1,4 @@
+# §10 GRU <- T1 only (KD teacher = text transformer). Teachers still trained identically.
+base: configs/m8_kd.yaml
+loss:
+  kd_teacher: t1

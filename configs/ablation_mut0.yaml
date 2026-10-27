@@ -1,0 +1,4 @@
+# §10 lambda_mut = 0 (T1/T2 without mutual distillation), everything else = full.
+base: configs/m8_kd.yaml
+loss:
+  lambda_mut: 0.0

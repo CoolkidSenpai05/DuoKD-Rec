@@ -29,6 +29,7 @@ model:
   gru_detach_shared: true
   ens_weights: [0.5, 0.5]
   learned_ens_weights: false   # true: w = softmax(a), a trained by CE(z_ens) only
+  t2_input: E_v                # E_v | E_f  (ablation: T2 reads the fused view h_f)
   hidden: 64
   dropout: 0.2                 # embedding / attention / FFN dropout (not fixed by spec)
   transformer:
@@ -63,6 +64,8 @@ eval:
 item_encoder:
   modality_dropout: 0.1        # prob. of replacing an item's text / image feature by the "missing" vector
   fusion_out_proj: true        # GRU-branch-only Linear after the fusion gate
+  use_text: true               # ablation: false -> e_txt = 0 for every item
+  use_image: true              # ablation: false -> e_img = 0 for every item
   moe:
     n_experts: 4
     expert_hidden: 128
@@ -79,3 +82,17 @@ loss:
   kd_start_epoch: 5
   kd_warmup_epochs: 5
   kd_teacher: ens              # ens | t1 | t2  (teacher distilled into the GRU)
+
+# ablation runner (M10, scripts/run_ablation.py)
+ablation:
+  seeds: [42, 43, 44]
+  parallel: 3                  # concurrent training processes on the GPU
+  summary_dir: runs/ablation
+  metrics: [Recall@10, Recall@20, NDCG@10, NDCG@20, MRR, cold_user/NDCG@20, cold_item/NDCG@20]
+
+# latency / memory benchmark (M10, scripts/benchmark.py)
+bench:
+  batch_sizes: [1, 256]
+  warmup_iters: 100
+  iters: 200
+  devices: [cuda, cpu]

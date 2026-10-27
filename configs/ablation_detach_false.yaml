@@ -1,0 +1,4 @@
+# §10 gru_detach_shared = false: GRU gradient (CE + KD) also flows into Emb_ID / Proj / MoE_t / MoE_v.
+base: configs/m8_kd.yaml
+model:
+  gru_detach_shared: false

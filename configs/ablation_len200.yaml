@@ -1,0 +1,4 @@
+# §10 max_len sensitivity: 200
+base: configs/m8_kd.yaml
+data:
+  max_len: 200

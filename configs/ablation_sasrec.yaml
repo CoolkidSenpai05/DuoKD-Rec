@@ -1,0 +1,2 @@
+# §10 SASRec (ID only): control baseline.
+base: configs/sasrec.yaml

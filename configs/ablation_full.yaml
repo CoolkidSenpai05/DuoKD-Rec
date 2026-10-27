@@ -1,0 +1,2 @@
+# §10 full DuoKD-Rec (reference row): GRU <- ensemble, lambda_mut 0.3, gru_detach_shared true. Same as M8.
+base: configs/m8_kd.yaml

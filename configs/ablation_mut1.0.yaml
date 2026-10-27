@@ -1,0 +1,4 @@
+# §10 lambda_mut sensitivity: 1.0
+base: configs/m8_kd.yaml
+loss:
+  lambda_mut: 1.0

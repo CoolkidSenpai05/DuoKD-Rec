@@ -30,6 +30,11 @@ class DuoKD(nn.Module):
         self.score_against = mcfg.get("score_against", "own")
         assert self.score_against in ("own", "id")
         self.detach_shared = mcfg.get("gru_detach_shared", True)
+        # which item table each head reads its input from / scores against.
+        # t2_input=E_f (ablation §10): T2 reads the fused view, through a non-detached Fusion.
+        t2_in = mcfg.get("t2_input", "E_v")
+        assert t2_in in ("E_v", "E_f"), t2_in
+        self._INPUT = {**DuoKD._INPUT, "t2": "E_v" if t2_in == "E_v" else "E_f_att"}
         d, L, tcfg = mcfg["hidden"], cfg["data"]["max_len"], mcfg["transformer"]
         ie_cfg = {"hidden": d, "dropout": mcfg["dropout"], **cfg["item_encoder"]}
         self.item_encoder = ItemEncoder(text_feat, img_feat, ie_cfg, cfg["features"]["missing"])
@@ -46,7 +51,7 @@ class DuoKD(nn.Module):
                 gcfg = mcfg["gru"]
                 self.towers[h] = GRUEncoder(d, gcfg["n_layers"], mcfg["dropout"])
 
-    # which item table each head reads its input from / scores against
+    # default mapping head -> item table (input and scoring); instances may override t2 (see __init__)
     _INPUT = {"t1": "E_t", "t2": "E_v", "gru": "E_f"}
 
     def _table(self, tables: dict[str, torch.Tensor], head: str) -> torch.Tensor:
@@ -54,7 +59,8 @@ class DuoKD(nn.Module):
 
     def forward(self, seq: torch.Tensor) -> dict[str, torch.Tensor]:
         mask = seq != 0
-        tables = self.item_encoder(detach_shared=self.detach_shared)
+        tables = self.item_encoder(detach_shared=self.detach_shared,
+                                   attached_fusion=self._INPUT["t2"] == "E_f_att" and "t2" in self.heads)
         out: dict[str, torch.Tensor] = {"mask": mask, "seq": seq, **tables}
         for h in self.heads:
             x = tables[self._INPUT[h]][seq]                  # [B, L, D]

@@ -1,0 +1,5 @@
+# §10 top-k MoE (k=2 of 4 experts) instead of soft MoE.
+base: configs/m8_kd.yaml
+item_encoder:
+  moe:
+    top_k: 2

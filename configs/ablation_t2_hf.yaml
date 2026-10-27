@@ -1,0 +1,4 @@
+# §10 T2 reads h_f (fused view, non-detached Fusion) instead of h_v.
+base: configs/m8_kd.yaml
+model:
+  t2_input: E_f

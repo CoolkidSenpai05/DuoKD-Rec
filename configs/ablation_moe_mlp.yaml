@@ -1,0 +1,5 @@
+# §10 plain MLP instead of MoE.
+base: configs/m8_kd.yaml
+item_encoder:
+  moe:
+    plain_mlp: true

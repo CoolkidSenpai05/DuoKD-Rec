@@ -1,0 +1,4 @@
+# §10 modality ablation: text only (image features disabled, e_img = 0). Architecture unchanged.
+base: configs/m8_kd.yaml
+item_encoder:
+  use_image: false

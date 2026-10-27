@@ -1,0 +1,4 @@
+# §10 GRU <- T2 only (KD teacher = image transformer).
+base: configs/m8_kd.yaml
+loss:
+  kd_teacher: t2

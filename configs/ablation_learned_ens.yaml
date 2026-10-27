@@ -1,0 +1,4 @@
+# §10 learned ensemble weights w = softmax(a) (a trained by CE(z_ens)) instead of the mean.
+base: configs/m8_kd.yaml
+model:
+  learned_ens_weights: true

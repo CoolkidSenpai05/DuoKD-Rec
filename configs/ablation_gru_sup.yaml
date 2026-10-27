@@ -1,0 +1,2 @@
+# §10 GRU with true labels only (input h_f): student baseline. Same as M6 m6_gru.
+base: configs/m6_gru.yaml
