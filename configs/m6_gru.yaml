@@ -1,0 +1,9 @@
+# M6 / §10 "GRU chỉ nhãn thật": GRU alone on h_f, CE only.
+# gru_detach_shared must be false here: with no teacher, a detached GRU would leave
+# Emb_ID / MoE_t / MoE_v untrained (random).
+base: configs/base.yaml
+model:
+  heads: [gru]
+  gru_detach_shared: false
+train:
+  select_head: gru

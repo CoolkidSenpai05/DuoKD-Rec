@@ -87,3 +87,29 @@ Nhận xét:
 - Chỉ 1 seed: chênh lệch ±0.001 nằm trong nhiễu.
 
 Test: `pytest tests/ -x -q` → `25 passed` (thêm `test_mask` cho T1/T2, shape của T1/T2).
+
+## Milestone 6 — GRU student, chỉ nhãn thật
+
+`src/models/gru_rec.py`: GRU 2 lớp, hidden D, dropout đầu vào. Padding trái được dồn về cuối rồi `pack_padded_sequence` → trạng thái ẩn bắt đầu từ 0 ở item thật đầu tiên, padding không chạm vào trạng thái (test). `u_g` = trạng thái lớp cuối, chấm với `E_f`. Có `step()` cho infer O(1) (M9).
+
+Hai mốc (seed 42, chọn theo valid NDCG@20 của GRU):
+- `m6_gru`: chỉ GRU, `gru_detach_shared=false` (bắt buộc: không có teacher thì detach sẽ để Emb_ID/MoE không được train).
+- `m6_all_sup`: T1 + T2 + GRU, chỉ CE (λ_mut = λ_kd = 0), `gru_detach_shared=true`. Mốc đối chứng trực tiếp cho M8.
+
+| Run | Head | Best ep | Valid N@20 | Test R@10 | Test N@10 | Test R@20 | Test N@20 | cold-user N@20 | cold-item N@20 |
+|---|---|---|---|---|---|---|---|---|---|
+| `m6_gru` | GRU | 21 | 0.0724 | 0.0840 | 0.0464 | 0.1204 | 0.0556 | 0.0484 | 0.0186 |
+| `m6_all_sup` | T1 | 35 | 0.0776 | 0.0893 | 0.0520 | 0.1264 | 0.0613 | 0.0545 | 0.0271 |
+| `m6_all_sup` | T2 | 35 | 0.0781 | 0.0903 | 0.0527 | 0.1251 | 0.0615 | 0.0542 | 0.0269 |
+| `m6_all_sup` | GRU | 35 | 0.0756 | 0.0863 | 0.0500 | 0.1217 | 0.0589 | 0.0520 | 0.0230 |
+| `m6_all_sup` | ens | 35 | 0.0784 | 0.0907 | 0.0530 | 0.1270 | 0.0621 | 0.0550 | 0.0272 |
+
+Chẩn đoán `m6_all_sup` (epoch 35): bất đồng T1–T2 0.65; entropy gate 1.24 / 1.24; tải MoE_t [0.23, 0.23, 0.29, 0.25], MoE_v [0.27, 0.25, 0.24, 0.23].
+
+Nhận xét:
+- GRU student (test N@20 0.0589) > SASRec (0.0537) nhưng < teacher (~0.061) và ensemble (0.0621): khoảng cách ≈ 0.003 là phần KD (M8) cần lấp.
+- GRU trên encoder do teacher huấn luyện (detach) **tốt hơn** GRU tự train encoder (0.0589 vs 0.0556, cold-item 0.0230 vs 0.0186): biểu diễn item từ T1/T2 có ích cho student ngay cả khi chưa KD.
+- Teacher trong `m6_all_sup` ≈ M5 (detach đúng như thiết kế: GRU không ảnh hưởng teacher).
+- Chạy lúc máy tải nặng (I/O đĩa chung), ~65–85 s/epoch; không ảnh hưởng kết quả.
+
+Test: `pytest tests/ -x -q` → `27 passed` (thêm GRU vào `test_mask`, `test_shapes`).

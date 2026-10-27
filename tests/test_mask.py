@@ -64,3 +64,22 @@ def test_tower_padding_inputs(tiny_cfg, feats, head):
     x2[~mask] = 100 * torch.randn(int((~mask).sum()), x.shape[-1])
     tower = model.towers[head]
     torch.testing.assert_close(tower(x, mask)[:, -1], tower(x2, mask)[:, -1])
+
+
+def test_gru_padding_inputs(tiny_cfg, feats):
+    """GRU: values at padding positions do not change the state; equals running on real items only."""
+    tiny_cfg["model"]["heads"] = ["t1", "t2", "gru"]
+    torch.manual_seed(0)
+    model = DuoKD(tiny_cfg, *feats).eval()
+    gru = model.towers["gru"]
+    seq = _seq()
+    mask = seq != 0
+    x = torch.randn(4, L, tiny_cfg["model"]["hidden"])
+    x2 = x.clone()
+    x2[~mask] = 100 * torch.randn(int((~mask).sum()), x.shape[-1])
+    u, u2 = gru(x, mask), gru(x2, mask)
+    torch.testing.assert_close(u, u2)
+    for b in range(4):  # reference: plain GRU from zero state over the real items only
+        real = x[b, mask[b]].unsqueeze(0)
+        _, h_n = gru.gru(real)
+        torch.testing.assert_close(u[b], h_n[-1, 0])

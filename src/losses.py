@@ -49,6 +49,8 @@ def gate_stats(probs: torch.Tensor, mask: torch.Tensor) -> tuple[torch.Tensor, t
 class DuoKDLoss(nn.Module):
     """L = L_sup + λ_bal·(L_bal_t + L_bal_v)   [mutual / KD terms added in M7 / M8].
 
+    Note: with gru_detach_shared=true the GRU gives no gradient to the MoEs; L_bal still applies.
+
     L_sup = Σ_head CE(z_head, y) over active heads. L_bal uses the MoE router probs of the
     items at real positions of the batch. Returns (loss, logs).
     """

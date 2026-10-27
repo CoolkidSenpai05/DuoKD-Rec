@@ -1,4 +1,4 @@
-"""DuoKD-Rec: item encoder + teachers T1 (text view), T2 (image view) [+ GRU student, M6]."""
+"""DuoKD-Rec: item encoder + teachers T1 (text view), T2 (image view) + GRU student (fused view)."""
 from __future__ import annotations
 
 import numpy as np
@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 
 from src.losses import gate_stats
+from src.models.gru_rec import GRUEncoder
 from src.models.item_encoder import ItemEncoder
 from src.models.transformer_rec import CausalTransformer
 
@@ -17,7 +18,7 @@ class DuoKD(nn.Module):
 
     cfg keys used: model.{hidden, dropout, heads, score_against, transformer}, item_encoder, data.max_len.
     forward(seq [B, L]) -> dict:
-      z_t1 / z_t2: logits [B, N] (only for active heads), mask [B, L], plus item-encoder tables.
+      z_t1 / z_t2 / z_gru: logits [B, N] (only for active heads), mask [B, L], plus item-encoder tables.
     predict(seq) -> {head: logits [B, N]} (+ "ens" when both teachers are active).
     """
 
@@ -39,7 +40,8 @@ class DuoKD(nn.Module):
                 self.towers[h] = CausalTransformer(d, tcfg["n_layers"], tcfg["n_heads"], L,
                                                    mcfg["dropout"], tcfg["ffn_mult"])
             else:
-                raise NotImplementedError("GRU student is added in M6")
+                gcfg = mcfg["gru"]
+                self.towers[h] = GRUEncoder(d, gcfg["n_layers"], mcfg["dropout"])
 
     # which item table each head reads its input from / scores against
     _INPUT = {"t1": "E_t", "t2": "E_v", "gru": "E_f"}
@@ -53,7 +55,10 @@ class DuoKD(nn.Module):
         out: dict[str, torch.Tensor] = {"mask": mask, "seq": seq, **tables}
         for h in self.heads:
             x = tables[self._INPUT[h]][seq]                  # [B, L, D]
-            u = self.towers[h](x, mask)[:, -1]               # [B, D] (left padding -> last = real)
+            if h == "gru":
+                u = self.towers[h](x, mask)                  # [B, D] state after last real item
+            else:
+                u = self.towers[h](x, mask)[:, -1]           # [B, D] (left padding -> last = real)
             out[f"u_{h}"] = u
             out[f"z_{h}"] = u @ self._table(tables, h)[1:].T  # [B, N]
         return out

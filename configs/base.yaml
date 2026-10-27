@@ -24,7 +24,7 @@ features:
 
 model:
   name: duokd                  # sasrec | duokd
-  heads: [t1, t2]              # active networks: t1 (text view), t2 (image view), gru (student, M6)
+  heads: [t1, t2, gru]         # active networks: t1 (text view), t2 (image view), gru (student)
   score_against: own           # own | id  (id: every head scores against Emb_ID, ablation)
   gru_detach_shared: true
   ens_weights: [0.5, 0.5]
@@ -34,6 +34,8 @@ model:
     n_layers: 2
     n_heads: 2
     ffn_mult: 4
+  gru:
+    n_layers: 2
 
 train:
   epochs: 200

@@ -49,3 +49,19 @@ def test_duokd_teacher_shapes(tiny_cfg, feats):
         assert out[f"z_{h}"].shape == (B, N_ITEMS)
     pred = model.predict(seq)
     assert set(pred) == {"t1", "t2", "ens"} and pred["ens"].shape == (B, N_ITEMS)
+
+
+def test_duokd_all_heads_shapes(tiny_cfg, feats):
+    from src.models.duokd import DuoKD
+
+    tiny_cfg["model"]["heads"] = ["t1", "t2", "gru"]
+    model = DuoKD(tiny_cfg, *feats)
+    seq = torch.randint(0, N_ITEMS + 1, (B, L))
+    seq[:, -1] = torch.randint(1, N_ITEMS + 1, (B,))
+    out = model(seq)
+    for h in ("t1", "t2", "gru"):
+        assert out[f"u_{h}"].shape == (B, D)
+        assert out[f"z_{h}"].shape == (B, N_ITEMS)
+    assert set(model.predict(seq)) == {"t1", "t2", "gru", "ens"}
+    u, state = model.towers["gru"].step(torch.randn(B, D))
+    assert u.shape == (B, D) and state.shape == (2, B, D)
