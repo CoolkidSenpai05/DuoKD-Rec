@@ -320,4 +320,4 @@ python scripts/export_student.py --ckpt <path> --out <path>
 - [ ] Cách gộp ensemble cuối cùng (trung bình hay học được).
 - [ ] `gru_detach_shared` mặc định cuối cùng sau ablation.
 - [ ] Có cần phương án T2 nhận `h_f` nếu nhánh ảnh quá yếu.
-- [ ] Có mở rộng sang fine-tune BERT/ViT hay giữ đóng băng.
+- [ ] Có mở rộng sang fine-tune BERT/ViT hay giữ đóng băng.k

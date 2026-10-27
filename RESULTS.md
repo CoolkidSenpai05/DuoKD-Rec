@@ -34,3 +34,19 @@ Item thiếu modality: `missing: zeros` (vector 0 + cờ `has_text.npy` / `has_i
 Modality dropout (§5) sẽ cài ở item encoder (M4) vì là bước train.
 
 Test: `pytest tests/test_data_split.py tests/test_features.py` → `7 passed`.
+
+## Milestone 3 — Baseline SASRec (chỉ ID)
+
+Cấu hình `configs/sasrec.yaml`: D=64, 2 lớp, 2 head, dropout 0.2, pre-LN, L=50, CE full-softmax trên vị trí cuối (mẫu cửa sổ trượt), AdamW lr 1e-3 wd 1e-2, batch 256, seed 42.
+Chọn checkpoint theo valid NDCG@20 (best epoch 35, early stop epoch 45, ~13 phút trên RTX 3090). Full ranking, `exclude_history=true`.
+
+| Split | R@10 | N@10 | R@20 | N@20 | MRR |
+|---|---|---|---|---|---|
+| Valid | 0.0968 | 0.0595 | 0.1304 | 0.0680 | 0.0540 |
+| **Test** | **0.0759** | **0.0464** | **0.1047** | **0.0537** | 0.0426 |
+
+Nhóm cold-start (test): user có lịch sử ≤5 item (11,383 user): R@20 0.0887 / N@20 0.0452; item target có ≤10 tương tác train (10,458 user): R@20 0.0426 / N@20 0.0246.
+
+So với số liệu công bố (Beauty, full ranking): SASRec loss BCE + 1 negative thường báo R@10 ≈ 0.06, N@10 ≈ 0.03 (các bảng CL4SRec/DuoRec, trích từ trí nhớ, chưa đối chiếu lại). Bản ở đây cao hơn, phù hợp với kết quả đã biết là CE full-softmax tốt hơn BCE đáng kể. Pipeline hợp lý: test < valid (không có dấu hiệu rò rỉ), cold-item thấp hơn hẳn.
+
+Test: `pytest tests/ -x -q` → `13 passed` (data_split, features, metrics, causal).

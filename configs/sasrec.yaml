@@ -1,0 +1,6 @@
+# SASRec ID-only baseline (M3).
+base: configs/base.yaml
+model:
+  name: sasrec
+train:
+  select_head: sasrec
