@@ -51,3 +51,13 @@ eval:
   exclude_history: true
   cold_user_max_len: 5         # users whose input history length <= this are "cold"
   cold_item_max_freq: 10       # target items with <= this many train interactions are "cold"
+
+# item encoder (M4)
+item_encoder:
+  modality_dropout: 0.1        # prob. of replacing an item's text / image feature by the "missing" vector
+  fusion_out_proj: true        # GRU-branch-only Linear after the fusion gate
+  moe:
+    n_experts: 4
+    expert_hidden: 128
+    top_k: null                # null = soft MoE
+    plain_mlp: false           # ablation: single MLP instead of MoE

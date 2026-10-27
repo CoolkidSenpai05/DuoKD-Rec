@@ -50,3 +50,14 @@ Nhóm cold-start (test): user có lịch sử ≤5 item (11,383 user): R@20 0.08
 So với số liệu công bố (Beauty, full ranking): SASRec loss BCE + 1 negative thường báo R@10 ≈ 0.06, N@10 ≈ 0.03 (các bảng CL4SRec/DuoRec, trích từ trí nhớ, chưa đối chiếu lại). Bản ở đây cao hơn, phù hợp với kết quả đã biết là CE full-softmax tốt hơn BCE đáng kể. Pipeline hợp lý: test < valid (không có dấu hiệu rò rỉ), cold-item thấp hơn hẳn.
 
 Test: `pytest tests/ -x -q` → `13 passed` (data_split, features, metrics, causal).
+
+## Milestone 4 — Item encoder (MoE, h_t, h_v, h_f)
+
+- `src/layers/moe.py`: MoE với expert MLP 2 lớp (GELU), router Linear+softmax; soft (mặc định), top-k (`top_k`), hoặc MLP thường (`plain_mlp`, cho ablation). Trả về `probs` (cho `L_bal`) và `gates` (trọng số dùng thật).
+- `src/layers/fusion.py`: `g = sigmoid(W[h_t;h_v])`, `h_f = Proj_f(g·h_t + (1-g)·h_v)`.
+- `src/models/item_encoder.py`: đặc trưng BERT/ViT là buffer đóng băng (không vào `state_dict`, không có grad); `Proj = LayerNorm + Linear`; tính bảng `E_id, E_t, E_v, E_f` `[N+1, D]` cho toàn catalog một lần mỗi bước (hàng 0 = 0), `h_* = E_*[seq]`. Cờ `detach_shared` detach `h_t, h_v` trước Fusion. Modality dropout p=0.1 theo item mỗi bước (chỉ khi train), thay bằng vector "thiếu" cùng quy ước `features.missing`.
+- `src/losses.py`: `moe_balance_loss` (soft: `n·ΣP²`; top-k: `n·Σf·P`), `gate_stats` (tải + entropy, có mask).
+
+Sanity trên đặc trưng thật: không NaN; gate khởi tạo gần đều (tải ≈ [0.21, 0.33, 0.23, 0.22], entropy 1.37 / ln4 = 1.39); 1.09M tham số; ~50 ms fwd+bwd toàn catalog trên 3090.
+
+Test: `pytest tests/ -x -q` → `21 passed` (thêm `test_moe`, `test_shapes`, `test_frozen_encoders`). Phần `test_mask` / `test_shapes` cho T1, T2, GRU sẽ bổ sung ở M5/M6 khi các mạng này tồn tại.
