@@ -167,3 +167,25 @@ Nhận xét:
 
 Test: `pytest tests/ -x -q` → `37 passed` (thêm `test_kd_detach` đầy đủ: L_kd, detach=false, trọng số ensemble học được; `test_gru_detach_shared`). Bộ test mất 15 phút do ổ đĩa chung quá tải I/O lúc chạy (bình thường ~10–30 s).
 Config M5–M7 được bổ sung `lambda_kd: 0` để giữ thiết lập cũ.
+
+## Milestone 9 — Export student + infer từng bước
+
+- `src/models/student.py`:
+  - `export_student(model, path, cfg)`: tính `E_f` toàn catalog một lần ở chế độ eval (không modality dropout, không dropout), lưu `E_f` cache + trọng số GRU + trọng số item encoder dùng để dựng lại `E_f` (Emb_ID, Proj, MoE_t, MoE_v, Fusion). **Không có T1/T2 / trọng số ensemble** (có assert + test).
+  - `StudentRecommender`: `score(seq)` (đường cả chuỗi), `step(item, state)` (`s_t = GRU(E_f[i_new], s_{t-1})`, O(1) mỗi tương tác, `z = s_t @ E_f[1:].T`), `topk(scores, k, exclude)`.
+- `scripts/export_student.py --ckpt <path> --out <path> [--verify]`.
+
+Kiểm tra trên checkpoint thật `m8_kd` (`checkpoints/m8_kd_student.pt`, 7.3 MB):
+
+| Split | GRU head (mô hình đầy đủ) R@20 / N@20 | Student export R@20 / N@20 | max \|diff\| mọi metric |
+|---|---|---|---|
+| Valid | 0.1587 / 0.0785 | 0.1587 / 0.0785 | 3.7e-6 |
+| Test | 0.1278 / 0.0618 | 0.1278 / 0.0618 | 1.9e-9 |
+
+Chênh lệch ~1e-6 trên valid là do sai số số thực GPU làm đổi thứ hạng ở vài điểm hòa (≈ 0.1 user / 22k), không phải sai logic; test CPU khớp tới 1e-6.
+
+Test: `test_student_export` (3 test): đầu ra student = GRU head ở eval (atol 1e-6, kể cả khi model có dropout/modality dropout lúc train); `step()` từng bước = chạy cả chuỗi ở mọi tiền tố; checkpoint không chứa khóa T1/T2; `topk` loại lịch sử. Toàn bộ: xem dòng cuối mục này.
+
+Lưu ý: infer từng bước giữ trạng thái trên **toàn bộ** lịch sử, còn đường train cắt `L = 50` item gần nhất → hai đường chỉ trùng nhau khi lịch sử ≤ 50 (95% user có ≤ 21 tương tác). Với lịch sử dài hơn, step-wise không cắt.
+
+Toàn bộ `pytest tests/ -x -q` → `40 passed in 47.25s`.
