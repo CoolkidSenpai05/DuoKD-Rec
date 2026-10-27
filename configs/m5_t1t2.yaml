@@ -1,0 +1,6 @@
+# M5: T1 and T2 trained jointly (shared Emb_ID), CE only (+ L_bal), no distillation.
+base: configs/base.yaml
+model:
+  heads: [t1, t2]
+train:
+  select_head: ens

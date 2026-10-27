@@ -61,3 +61,29 @@ Test: `pytest tests/ -x -q` → `13 passed` (data_split, features, metrics, caus
 Sanity trên đặc trưng thật: không NaN; gate khởi tạo gần đều (tải ≈ [0.21, 0.33, 0.23, 0.22], entropy 1.37 / ln4 = 1.39); 1.09M tham số; ~50 ms fwd+bwd toàn catalog trên 3090.
 
 Test: `pytest tests/ -x -q` → `21 passed` (thêm `test_moe`, `test_shapes`, `test_frozen_encoders`). Phần `test_mask` / `test_shapes` cho T1, T2, GRU sẽ bổ sung ở M5/M6 khi các mạng này tồn tại.
+
+## Milestone 5 — T1 và T2 train riêng (chưa distill)
+
+Loss: `L_sup + 0.01·L_bal`. T1: Transformer nhân quả trên `h_t`, chấm với `E_t`; T2: trên `h_v`, chấm với `E_v`. Seed 42, chọn checkpoint theo valid NDCG@20 (head ghi trong cột "chọn theo"). Chạy trong tmux, `exclude_history=true`.
+
+| Run | Head | Chọn theo | Best ep | Valid N@20 | Test R@10 | Test N@10 | Test R@20 | Test N@20 | cold-user N@20 | cold-item N@20 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| SASRec (M3) | ID | sasrec | 35 | 0.0680 | 0.0759 | 0.0464 | 0.1047 | 0.0537 | 0.0452 | 0.0246 |
+| `m5_t1` | T1 | t1 | 29 | 0.0794 | 0.0893 | 0.0527 | 0.1251 | 0.0617 | 0.0539 | 0.0247 |
+| `m5_t2` | T2 | t2 | 36 | 0.0782 | 0.0897 | 0.0522 | 0.1244 | 0.0609 | 0.0546 | 0.0244 |
+| `m5_t1t2` | T1 | ens | 35 | 0.0785 | 0.0899 | 0.0531 | 0.1260 | 0.0622 | 0.0549 | 0.0272 |
+| `m5_t1t2` | T2 | ens | 35 | 0.0780 | 0.0896 | 0.0527 | 0.1255 | 0.0618 | 0.0549 | 0.0265 |
+| `m5_t1t2` | ens (0.5/0.5) | ens | 35 | 0.0791 | 0.0904 | 0.0532 | 0.1262 | 0.0623 | 0.0552 | 0.0272 |
+
+Chẩn đoán (`m5_t1t2`, epoch 0 → 35 → 45):
+- Bất đồng top-1 T1–T2: 0.86 → 0.65 → 0.64.
+- Entropy gate (max ln4 = 1.386): MoE_t 1.35 → 1.30 → 1.33; MoE_v 1.28 → 1.28 → 1.32. Tải expert ở epoch 35: MoE_t [0.21, 0.22, 0.25, 0.32], MoE_v [0.23, 0.24, 0.24, 0.28] → không sụp expert. `L_bal` ≈ 2.03 (min = 2.0 cho hai MoE).
+
+Nhận xét:
+- Thêm đặc trưng đa phương thức giúp rõ: test N@20 +15% so với SASRec (0.0537 → 0.0617).
+- **Nhánh ảnh không yếu**: T2 ≈ T1. Có thể vì cả hai đều chứa `e_id` trong đầu vào MoE nên phần ID chi phối. → Câu hỏi §13 "T2 nhận h_f nếu nhánh ảnh yếu" có lẽ không cần.
+- Ensemble chỉ hơn teacher tốt nhất một chút (+0.0001 test N@20), dù hai mạng bất đồng top-1 ở 64% mẫu. Hai mạng sai khác nhau nhưng chưa bổ trợ nhiều cho nhau.
+- Train chung (dùng chung `Emb_ID`) ngang hoặc hơn nhẹ train riêng, cold-item tốt hơn (0.0247 → 0.0272).
+- Chỉ 1 seed: chênh lệch ±0.001 nằm trong nhiễu.
+
+Test: `pytest tests/ -x -q` → `25 passed` (thêm `test_mask` cho T1/T2, shape của T1/T2).

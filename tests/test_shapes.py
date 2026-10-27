@@ -34,3 +34,18 @@ def test_modality_dropout(tiny_cfg, feats):
     enc.eval()
     tf, _ = enc._features()
     torch.testing.assert_close(tf, enc.text_feat)  # no dropout at eval
+
+
+def test_duokd_teacher_shapes(tiny_cfg, feats):
+    from src.models.duokd import DuoKD
+
+    model = DuoKD(tiny_cfg, *feats)
+    seq = torch.randint(0, N_ITEMS + 1, (B, L))
+    seq[:, -1] = torch.randint(1, N_ITEMS + 1, (B,))
+    out = model(seq)
+    assert out["mask"].shape == (B, L) and out["mask"].dtype == torch.bool
+    for h in ("t1", "t2"):
+        assert out[f"u_{h}"].shape == (B, D)
+        assert out[f"z_{h}"].shape == (B, N_ITEMS)
+    pred = model.predict(seq)
+    assert set(pred) == {"t1", "t2", "ens"} and pred["ens"].shape == (B, N_ITEMS)

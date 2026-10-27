@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import torch.nn as nn
 
-from src.losses import SASRecLoss
+from src.losses import DuoKDLoss, SASRecLoss
 from src.models.transformer_rec import SASRec
 
 
@@ -11,6 +11,12 @@ def build_model(cfg: dict, n_items: int) -> nn.Module:
     name = cfg["model"]["name"]
     if name == "sasrec":
         return SASRec(n_items, cfg["model"], cfg["data"]["max_len"])
+    if name == "duokd":
+        from src.models.duokd import DuoKD
+
+        text_feat, img_feat = load_features(cfg)
+        assert text_feat.shape[0] == n_items + 1, "features do not match the processed dataset"
+        return DuoKD(cfg, text_feat, img_feat)
     raise ValueError(f"unknown model {name}")
 
 
@@ -18,6 +24,8 @@ def build_loss(cfg: dict) -> nn.Module:
     name = cfg["model"]["name"]
     if name == "sasrec":
         return SASRecLoss()
+    if name == "duokd":
+        return DuoKDLoss(cfg)
     raise ValueError(f"unknown model {name}")
 
 

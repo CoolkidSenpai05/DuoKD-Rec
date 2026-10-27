@@ -12,8 +12,10 @@ TINY_CFG = {
     "seed": 0,
     "data": {"max_len": L},
     "features": {"missing": "zeros"},
-    "model": {"name": "duokd", "hidden": D, "dropout": 0.0,
+    "model": {"name": "duokd", "hidden": D, "dropout": 0.0, "heads": ["t1", "t2"],
+              "score_against": "own", "gru_detach_shared": True, "ens_weights": [0.5, 0.5],
               "transformer": {"n_layers": 2, "n_heads": 2, "ffn_mult": 2}},
+    "loss": {"lambda_bal": 0.01},
     "item_encoder": {"modality_dropout": 0.0, "fusion_out_proj": True,
                      "moe": {"n_experts": 4, "expert_hidden": 32, "top_k": None, "plain_mlp": False}},
 }

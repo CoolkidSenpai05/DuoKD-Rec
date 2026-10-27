@@ -1,0 +1,6 @@
+# M5: t1 alone, CE only (+ L_bal), no distillation.
+base: configs/base.yaml
+model:
+  heads: [t1]
+train:
+  select_head: t1
