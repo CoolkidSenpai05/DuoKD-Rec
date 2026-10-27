@@ -15,7 +15,7 @@ TINY_CFG = {
     "model": {"name": "duokd", "hidden": D, "dropout": 0.0, "heads": ["t1", "t2"],
               "score_against": "own", "gru_detach_shared": True, "ens_weights": [0.5, 0.5],
               "transformer": {"n_layers": 2, "n_heads": 2, "ffn_mult": 2}, "gru": {"n_layers": 2}},
-    "loss": {"lambda_bal": 0.01},
+    "loss": {"lambda_bal": 0.01, "tau": 2.0, "lambda_mut": 0.3, "mut_start_epoch": 0, "mut_warmup_epochs": 0},
     "item_encoder": {"modality_dropout": 0.0, "fusion_out_proj": True,
                      "moe": {"n_experts": 4, "expert_hidden": 32, "top_k": None, "plain_mlp": False}},
 }

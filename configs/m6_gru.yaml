@@ -7,3 +7,5 @@ model:
   gru_detach_shared: false
 train:
   select_head: gru
+loss:
+  lambda_mut: 0.0             # no distillation in this milestone

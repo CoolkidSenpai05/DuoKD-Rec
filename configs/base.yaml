@@ -70,3 +70,7 @@ item_encoder:
 
 loss:
   lambda_bal: 0.01
+  tau: 2.0
+  lambda_mut: 0.3              # max value; linear warm-up from 0
+  mut_start_epoch: 5
+  mut_warmup_epochs: 5

@@ -1,8 +1,10 @@
 # M6: T1 + T2 + GRU trained together with CE only (λ_mut = λ_kd = 0), gru_detach_shared=true.
-# Direct reference for the KD runs in M8.
+# Direct reference for the mutual (M7) and KD (M8) runs.
 base: configs/base.yaml
 model:
   heads: [t1, t2, gru]
   gru_detach_shared: true
+loss:
+  lambda_mut: 0.0
 train:
   select_head: gru

@@ -1,0 +1,9 @@
+# M7: m6_all_sup + mutual distillation T1 <-> T2 (λ_mut max 0.3, warm-up epochs 5..10). No KD to GRU yet.
+base: configs/base.yaml
+model:
+  heads: [t1, t2, gru]
+  gru_detach_shared: true
+loss:
+  lambda_mut: 0.3
+train:
+  select_head: gru

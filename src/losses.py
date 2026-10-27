@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from src.schedules import linear_warmup
+
 
 def ce_loss(logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """Full-softmax CE. logits [B, N] over real items; target [B] item ids in 1..N."""
@@ -46,8 +48,23 @@ def gate_stats(probs: torch.Tensor, mask: torch.Tensor) -> tuple[torch.Tensor, t
     return P, (ent * mask.float()).sum() / denom
 
 
+def kl_teacher_student(z_teacher: torch.Tensor, z_student: torch.Tensor, tau: float) -> torch.Tensor:
+    """τ²·KL(softmax(z_teacher/τ) ‖ softmax(z_student/τ)), batch mean.
+
+    The teacher logits are detached here (detach_teacher_in_kd is mandatory, §3.5). [B, N] -> [].
+    """
+    p_t = F.softmax(z_teacher.detach() / tau, dim=-1)
+    log_q = F.log_softmax(z_student / tau, dim=-1)
+    return tau ** 2 * F.kl_div(log_q, p_t, reduction="batchmean")
+
+
+def mutual_kd_loss(z1: torch.Tensor, z2: torch.Tensor, tau: float) -> tuple[torch.Tensor, torch.Tensor]:
+    """Mutual distillation T1 <-> T2 (§3.4b). Returns (T2 teaches T1, T1 teaches T2)."""
+    return kl_teacher_student(z2, z1, tau), kl_teacher_student(z1, z2, tau)
+
+
 class DuoKDLoss(nn.Module):
-    """L = L_sup + λ_bal·(L_bal_t + L_bal_v)   [mutual / KD terms added in M7 / M8].
+    """L = L_sup + λ_mut(t)·L_mut + λ_bal·(L_bal_t + L_bal_v)   [KD term added in M8].
 
     Note: with gru_detach_shared=true the GRU gives no gradient to the MoEs; L_bal still applies.
 
@@ -62,6 +79,13 @@ class DuoKDLoss(nn.Module):
         self.top_k = cfg["item_encoder"]["moe"]["top_k"]
         # a MoE is only trained when the teacher that reads its view is active (or the GRU)
         self.bal_views = [v for v, h in (("t", "t1"), ("v", "t2")) if h in self.heads or "gru" in self.heads]
+        lc = cfg["loss"]
+        self.tau = lc["tau"]
+        self.mut_cfg = (lc["lambda_mut"], lc["mut_start_epoch"], lc["mut_warmup_epochs"])
+        self.use_mut = "t1" in self.heads and "t2" in self.heads and lc["lambda_mut"] > 0
+
+    def lambdas(self, epoch: int) -> dict[str, float]:
+        return {"lambda_mut": linear_warmup(epoch, *self.mut_cfg) if self.use_mut else 0.0}
 
     def forward(self, out: dict, batch: dict, epoch: int) -> tuple[torch.Tensor, dict[str, float]]:
         y = batch["target"]
@@ -77,4 +101,14 @@ class DuoKDLoss(nn.Module):
         for v in self.bal_views:
             l_bal = l_bal + moe_balance_loss(out[f"probs_{v}"][seq], out[f"gates_{v}"][seq], m, self.top_k)
         logs["L_bal"] = l_bal.item()
-        return loss + self.lambda_bal * l_bal, logs
+        loss = loss + self.lambda_bal * l_bal
+
+        lam = self.lambdas(epoch)
+        logs.update(lam)
+        if self.use_mut:
+            m21, m12 = mutual_kd_loss(out["z_t1"], out["z_t2"], self.tau)
+            l_mut = m21 + m12
+            logs["L_mut"] = l_mut.item()
+            if lam["lambda_mut"] > 0:
+                loss = loss + lam["lambda_mut"] * l_mut
+        return loss, logs

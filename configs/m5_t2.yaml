@@ -4,3 +4,5 @@ model:
   heads: [t2]
 train:
   select_head: t2
+loss:
+  lambda_mut: 0.0             # no distillation in this milestone

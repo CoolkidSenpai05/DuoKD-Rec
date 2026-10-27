@@ -113,3 +113,33 @@ Nhận xét:
 - Chạy lúc máy tải nặng (I/O đĩa chung), ~65–85 s/epoch; không ảnh hưởng kết quả.
 
 Test: `pytest tests/ -x -q` → `27 passed` (thêm GRU vào `test_mask`, `test_shapes`).
+
+## Milestone 7 — Mutual distillation T1 ⇄ T2
+
+`L_mut = τ²[KL(p2.detach‖p1) + KL(p1.detach‖p2)]`, τ = 2. `λ_mut` warm-up tuyến tính (`src/schedules.py`): 0 tới epoch 5, tăng đều, đạt 0.3 ở epoch 10. `m7_mut` giống hệt `m6_all_sup`, chỉ khác `λ_mut` (epoch 0 trùng khớp đến từng chữ số → deterministic). Seed 42, chọn theo valid N@20 của GRU.
+
+| Run | Head | Best ep | Valid N@20 | Test R@10 | Test N@10 | Test R@20 | Test N@20 | cold-user N@20 | cold-item N@20 |
+|---|---|---|---|---|---|---|---|---|---|
+| `m6_all_sup` (λ_mut=0) | T1 | 35 | 0.0776 | 0.0893 | 0.0520 | 0.1264 | 0.0613 | 0.0545 | 0.0271 |
+| | T2 | 35 | 0.0781 | 0.0903 | 0.0527 | 0.1251 | 0.0615 | 0.0542 | 0.0269 |
+| | GRU | 35 | 0.0756 | 0.0863 | 0.0500 | 0.1217 | 0.0589 | 0.0520 | 0.0230 |
+| | ens | 35 | 0.0784 | 0.0907 | 0.0530 | 0.1270 | 0.0621 | 0.0550 | 0.0272 |
+| `m7_mut` (λ_mut=0.3) | T1 | 35 | 0.0786 | 0.0897 | 0.0520 | 0.1287 | 0.0619 | 0.0551 | 0.0249 |
+| | T2 | 35 | 0.0790 | 0.0901 | 0.0528 | 0.1274 | 0.0622 | 0.0551 | 0.0259 |
+| | GRU | 35 | 0.0769 | 0.0876 | 0.0505 | 0.1243 | 0.0597 | 0.0527 | 0.0212 |
+| | ens | 35 | 0.0793 | 0.0903 | 0.0527 | 0.1286 | 0.0623 | 0.0555 | 0.0259 |
+
+Độ bất đồng top-1 T1–T2 theo epoch (0, 5, 10, 20, 30, 35, 45):
+- `m6_all_sup`: 0.857, 0.741, 0.716, 0.695, 0.662, 0.649, 0.637
+- `m7_mut`:     0.857, 0.741, 0.684, 0.665, 0.640, 0.622, 0.605
+
+`L_mut` (chưa nhân λ): 0.84 (ep 0) → 0.54 (ep 10) → 0.77 (ep 35); tăng lại khi phân phối hai mạng sắc hơn. Entropy gate ≈ 1.23 cho cả hai MoE (không sụp).
+
+Nhận xét (1 seed, chênh lệch ~0.001 chưa đủ kết luận):
+- Mutual giúp từng teacher nhẹ: valid N@20 +0.0010 (T1), +0.0009 (T2); test N@20 +0.0006 / +0.0007.
+- Bất đồng giảm đều ~0.03 → hai teacher giống nhau hơn; ensemble hầu như không hưởng lợi (test N@20 0.0621 → 0.0623). Lợi ích ensemble so với teacher tốt nhất vẫn rất nhỏ.
+- GRU tăng nhẹ (test N@20 0.0589 → 0.0597) dù chưa có KD — chỉ nhờ encoder dùng chung tốt hơn.
+- Cold-item giảm (ens 0.0272 → 0.0259): mutual có thể đẩy teacher về item phổ biến. Cần kiểm tra lại với nhiều seed ở M10.
+
+Test: `pytest tests/ -x -q` → `31 passed` (thêm `test_kd_detach` phần mutual + `test_schedules`).
+Config M5/M6 được bổ sung `lambda_mut: 0` để giữ đúng thiết lập cũ khi base bật mutual.
