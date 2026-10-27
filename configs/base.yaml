@@ -1,0 +1,11 @@
+# DuoKD-Rec base config. Every hyper-parameter lives here (CLAUDE.md §11).
+seed: 42
+
+data:
+  dataset: Beauty
+  raw_dir: data/raw
+  reviews_file: reviews_Beauty_5.json.gz
+  meta_file: meta_Beauty.json.gz
+  processed_dir: data/processed/Beauty
+  k_core: 5
+  max_len: 50
