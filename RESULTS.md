@@ -189,3 +189,49 @@ Test: `test_student_export` (3 test): đầu ra student = GRU head ở eval (ato
 Lưu ý: infer từng bước giữ trạng thái trên **toàn bộ** lịch sử, còn đường train cắt `L = 50` item gần nhất → hai đường chỉ trùng nhau khi lịch sử ≤ 50 (95% user có ≤ 21 tương tác). Với lịch sử dài hơn, step-wise không cắt.
 
 Toàn bộ `pytest tests/ -x -q` → `40 passed in 47.25s`.
+
+## Milestone 10 — Ablation (đang chạy dở)
+
+Hạ tầng: `configs/ablation_*.yaml` (19 file, mỗi file đổi đúng một yếu tố so với mô hình đầy đủ `m8_kd`), `scripts/run_ablation.py` (nhiều seed, chạy song song, bỏ qua run đã xong, xuất `runs/ablation/summary.{md,csv}`), `scripts/benchmark.py` (latency/bộ nhớ). Cờ mới (mặc định giữ hành vi cũ): `model.t2_input: E_v|E_f`, `item_encoder.use_text` / `use_image`. Test mới: `test_overfit_batch`, `test_determinism`, `test_ablation_flags` → toàn bộ `pytest tests/ -q` → `46 passed in 29.86s`.
+
+### Đã chạy xong (seed 42, 43, 44)
+
+Test, mean ± std (ddof=1); checkpoint chọn theo valid NDCG@20 của GRU (SASRec: của chính nó); full ranking, exclude_history.
+
+| config | head | best ep. | Recall@10 | Recall@20 | NDCG@10 | NDCG@20 | MRR | cold_user N@20 | cold_item N@20 |
+|---|---|---|---|---|---|---|---|---|---|
+| sasrec | sasrec | 33 | 0.0768 ± 0.0022 | 0.1050 ± 0.0006 | 0.0468 ± 0.0010 | 0.0539 ± 0.0007 | 0.0429 ± 0.0006 | 0.0458 ± 0.0011 | 0.0245 ± 0.0012 |
+| gru_sup | gru | 20 | 0.0848 ± 0.0010 | 0.1227 ± 0.0027 | 0.0471 ± 0.0009 | 0.0567 ± 0.0013 | 0.0423 ± 0.0011 | 0.0502 ± 0.0015 | 0.0203 ± 0.0027 |
+| full | t1 | 39 | 0.0900 ± 0.0004 | 0.1270 ± 0.0015 | 0.0528 ± 0.0007 | 0.0621 ± 0.0003 | 0.0478 ± 0.0007 | 0.0549 ± 0.0003 | 0.0264 ± 0.0015 |
+| full | t2 | 39 | 0.0903 ± 0.0002 | 0.1266 ± 0.0008 | 0.0530 ± 0.0003 | 0.0622 ± 0.0002 | 0.0480 ± 0.0003 | 0.0550 ± 0.0003 | 0.0265 ± 0.0006 |
+| full | ens | 39 | 0.0906 ± 0.0002 | 0.1274 ± 0.0010 | 0.0532 ± 0.0004 | 0.0624 ± 0.0001 | 0.0481 ± 0.0004 | 0.0553 ± 0.0003 | 0.0266 ± 0.0008 |
+| full | **gru** | 39 | 0.0903 ± 0.0003 | 0.1268 ± 0.0011 | 0.0523 ± 0.0004 | **0.0615 ± 0.0003** | 0.0472 ± 0.0003 | 0.0545 ± 0.0001 | 0.0231 ± 0.0006 |
+| kd_t1 | t1 | 42 | 0.0909 ± 0.0015 | 0.1271 ± 0.0015 | 0.0536 ± 0.0009 | 0.0628 ± 0.0009 | 0.0486 ± 0.0007 | 0.0552 ± 0.0007 | 0.0275 ± 0.0008 |
+| kd_t1 | t2 | 42 | 0.0910 ± 0.0010 | 0.1267 ± 0.0009 | 0.0535 ± 0.0006 | 0.0625 ± 0.0006 | 0.0484 ± 0.0005 | 0.0550 ± 0.0004 | 0.0274 ± 0.0009 |
+| kd_t1 | ens | 42 | 0.0916 ± 0.0014 | 0.1274 ± 0.0010 | 0.0539 ± 0.0008 | 0.0629 ± 0.0007 | 0.0487 ± 0.0005 | 0.0553 ± 0.0004 | 0.0275 ± 0.0009 |
+| kd_t1 | **gru** | 42 | 0.0898 ± 0.0005 | 0.1269 ± 0.0011 | 0.0521 ± 0.0002 | **0.0614 ± 0.0001** | 0.0470 ± 0.0003 | 0.0546 ± 0.0002 | 0.0241 ± 0.0004 |
+
+Nhận xét:
+- **KD có hiệu quả**: GRU 0.0567 (chỉ nhãn thật) → 0.0615 (+8.5%, ≫ std); student chỉ kém ensemble ~1%. So với SASRec: +14%.
+- **Ensemble chưa hơn teacher đơn**: GRU ← T1 đơn = 0.0614 ≈ GRU ← ensemble 0.0615 (trong khoảng std). Chờ `kd_t2`.
+- Teacher ở `kd_t1` khác `full` một chút (dù có detach) vì checkpoint được chọn theo GRU → epoch dừng khác (42 vs 39), không phải rò gradient.
+- **Tái lập**: `ablation_full_s42` trùng từng bit với `m8_kd_s42` (epoch 35, mọi metric).
+- Cold-item: GRU (0.023–0.024) vẫn thấp hơn teacher (~0.027).
+
+### Latency / bộ nhớ (chạy thử, checkpoint `m8_kd_s42`)
+
+Bảng item đã cache; đo phần mạng tuần tự + chấm điểm toàn catalog, median ms. GPU lúc đo **đang bị tiến trình khác dùng chung**, warm-up 10 vòng → số liệu sơ bộ, sẽ đo lại (warm-up 100, 200 vòng).
+
+| Đường | tham số | GPU B=1 | GPU B=256 | CPU B=1 | CPU B=256 |
+|---|---|---|---|---|---|
+| T1 (cả chuỗi L=50) | 103,296 | 4.86* | 2.98 | 2.55 | 33.6 |
+| T2 (cả chuỗi L=50) | 103,296 | 4.85* | 2.96 | 2.84 | 33.3 |
+| GRU cả chuỗi | 49,920 | 1.12 | 2.76 | 1.98 | 16.0 |
+| GRU một bước (O(1)) | 49,920 | 0.39 | 0.51 | 0.59 | 3.4 |
+
+\* đo đầu tiên, GPU chưa tăng xung — không đáng tin. Trạng thái mỗi user: GRU 512 byte (2×64 float) vs Transformer cần giữ 50 item id. Bộ nhớ đỉnh GPU (B=256): T1 40.5 MiB, GRU 11.9 MiB. Item encoder dùng chung 1.09M tham số (chủ yếu Emb_ID và Proj từ 768-d); khi infer chỉ cần bảng `E_f` (3.1 MB).
+
+### Chưa chạy
+- Nhóm 1 còn lại: `kd_t2`, `mut0`, `detach_false` (runner bị dừng bằng Ctrl+C lúc 07:05 khi đang chạy `kd_t2`; các run dở dang không có `result.json`, chạy lại sẽ train lại từ đầu).
+- Nhóm 2: `mut0.1`, `mut1.0`, `t2_hf`, `moe_topk`, `moe_mlp`, `learned_ens`, `len20/100/200`, `text_only`, `image_only`, `id_only`.
+- Đo latency chính thức khi GPU rảnh.
