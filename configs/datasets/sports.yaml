@@ -1,0 +1,19 @@
+# Amazon 2014 (McAuley/SNAP) Sports_and_Outdoors, 5-core.
+name: sports
+category: Sports_and_Outdoors
+data:
+  raw_dir: data/raw/sports
+  reviews_file: reviews_Sports_and_Outdoors_5.json.gz
+  meta_file: meta_Sports_and_Outdoors.json.gz
+  processed_dir: data/processed/sports
+features:
+  feat_dir: data/feats/sports
+  image_dir: data/raw/images/sports
+paths:
+  runs_dir: runs/sports
+  ckpt_dir: checkpoints/sports
+  ablation_dir: runs/sports/ablation
+expected:            # standard 5-core statistics reported in SR papers
+  n_users: 35598
+  n_items: 18357
+  n_interactions: 296337

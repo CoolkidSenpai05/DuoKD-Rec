@@ -1,0 +1,19 @@
+# Amazon 2014 (McAuley/SNAP) Clothing_Shoes_and_Jewelry, 5-core.
+name: clothing
+category: Clothing_Shoes_and_Jewelry
+data:
+  raw_dir: data/raw/clothing
+  reviews_file: reviews_Clothing_Shoes_and_Jewelry_5.json.gz
+  meta_file: meta_Clothing_Shoes_and_Jewelry.json.gz
+  processed_dir: data/processed/clothing
+features:
+  feat_dir: data/feats/clothing
+  image_dir: data/raw/images/clothing
+paths:
+  runs_dir: runs/clothing
+  ckpt_dir: checkpoints/clothing
+  ablation_dir: runs/clothing/ablation
+expected:            # standard 5-core statistics reported in SR papers
+  n_users: 39387
+  n_items: 23033
+  n_interactions: 278677

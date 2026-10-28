@@ -12,9 +12,32 @@ from torch.utils.data import Dataset
 from src.utils import resolve
 
 
-def load_processed(processed_dir: str | Path) -> dict[str, Any]:
+def load_processed(processed_dir: str | Path, with_timestamps: bool = False) -> dict[str, Any]:
+    """Load `data.pkl`; with_timestamps also merges `timestamps.pkl` (train_ts/valid_ts/test_ts)."""
     with open(resolve(processed_dir) / "data.pkl", "rb") as f:
-        return pickle.load(f)
+        data = pickle.load(f)
+    if with_timestamps:
+        with open(resolve(processed_dir) / "timestamps.pkl", "rb") as f:
+            ts = pickle.load(f)
+        assert [len(t) for t in ts["train_ts"]] == [len(s) for s in data["train_seqs"]]
+        data.update(ts)
+    return data
+
+
+PER_USER_KEYS = ("train_seqs", "valid_items", "test_items", "train_ts", "valid_ts", "test_ts")
+
+
+def limit_users(data: dict[str, Any], k: int | None) -> dict[str, Any]:
+    """Smoke runs: keep the first `k` users (per-user lists sliced); the item catalog is unchanged."""
+    if not k or k >= data["n_users"]:
+        return data
+    out = dict(data)
+    for key in PER_USER_KEYS:
+        if key in data:
+            out[key] = data[key][:k]
+    out["n_users"] = k
+    out.pop("user2id", None)
+    return out
 
 
 def left_pad(items: list[int], max_len: int) -> np.ndarray:

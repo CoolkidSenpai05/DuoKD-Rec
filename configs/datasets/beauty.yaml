@@ -1,0 +1,20 @@
+# Amazon 2014 (McAuley/SNAP) Beauty, 5-core. Alias: keeps the pre-M11 paths (data/processed/Beauty,
+# data/raw/*.json.gz, runs/) so M1-M10 results, ablation configs and file hashes stay valid.
+name: beauty
+category: Beauty
+data:
+  raw_dir: data/raw
+  reviews_file: reviews_Beauty_5.json.gz
+  meta_file: meta_Beauty.json.gz
+  processed_dir: data/processed/Beauty
+features:
+  feat_dir: data/processed/Beauty/feats
+  image_dir: data/raw/images/Beauty
+paths:
+  runs_dir: runs
+  ckpt_dir: checkpoints
+  ablation_dir: runs/ablation
+expected:            # standard 5-core statistics reported in SR papers
+  n_users: 22363
+  n_items: 12101
+  n_interactions: 198502

@@ -2,17 +2,14 @@
 seed: 42
 
 data:
-  dataset: Beauty
-  raw_dir: data/raw
-  reviews_file: reviews_Beauty_5.json.gz
-  meta_file: meta_Beauty.json.gz
-  processed_dir: data/processed/Beauty
+  # dataset name -> configs/datasets/<name>.yaml fills raw/processed/feature/image/run paths
+  # (beauty | sports | toys | clothing); paths set explicitly here or via --set take precedence.
+  dataset: beauty
+  limit_users: null            # smoke runs only: keep the first K users (catalog unchanged)
   k_core: 5
   max_len: 50
 
 features:
-  feat_dir: data/processed/Beauty/feats
-  image_dir: data/raw/images/Beauty
   text_model: bert-base-uncased
   text_pooling: cls            # cls | mean
   text_max_tokens: 128
@@ -50,7 +47,6 @@ train:
   select_metric: NDCG@20
   select_head: gru             # head used for checkpoint selection (sasrec for baseline)
   num_workers: 2
-  out_dir: runs
 
 eval:
   batch_size: 1024
@@ -87,7 +83,6 @@ loss:
 ablation:
   seeds: [42, 43, 44]
   parallel: 3                  # concurrent training processes on the GPU
-  summary_dir: runs/ablation
   metrics: [Recall@10, Recall@20, NDCG@10, NDCG@20, MRR, cold_user/NDCG@20, cold_item/NDCG@20]
 
 # latency / memory benchmark (M10, scripts/benchmark.py)

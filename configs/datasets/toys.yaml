@@ -1,0 +1,19 @@
+# Amazon 2014 (McAuley/SNAP) Toys_and_Games, 5-core.
+name: toys
+category: Toys_and_Games
+data:
+  raw_dir: data/raw/toys
+  reviews_file: reviews_Toys_and_Games_5.json.gz
+  meta_file: meta_Toys_and_Games.json.gz
+  processed_dir: data/processed/toys
+features:
+  feat_dir: data/feats/toys
+  image_dir: data/raw/images/toys
+paths:
+  runs_dir: runs/toys
+  ckpt_dir: checkpoints/toys
+  ablation_dir: runs/toys/ablation
+expected:            # standard 5-core statistics reported in SR papers
+  n_users: 19412
+  n_items: 11924
+  n_interactions: 167597
