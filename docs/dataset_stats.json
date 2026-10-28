@@ -1,0 +1,229 @@
+{
+  "beauty": {
+    "stats": {
+      "n_users": 22363,
+      "n_items": 12101,
+      "n_interactions": 198502,
+      "n_interactions_raw": 198502,
+      "density": 0.0007335227064174272,
+      "seq_len_mean": 8.876358270357287,
+      "seq_len_median": 6.0,
+      "seq_len_p90": 14.0,
+      "seq_len_p95": 21.0,
+      "seq_len_max": 204,
+      "item_freq_mean": 16.403768283612923,
+      "n_train_samples": 131413,
+      "valid_target_in_history": 0,
+      "test_target_in_history": 0
+    },
+    "check": {
+      "tolerance": 0.005,
+      "fields": {
+        "n_users": {
+          "actual": 22363,
+          "expected": 22363,
+          "rel_dev": 0.0
+        },
+        "n_items": {
+          "actual": 12101,
+          "expected": 12101,
+          "rel_dev": 0.0
+        },
+        "n_interactions": {
+          "actual": 198502,
+          "expected": 198502,
+          "rel_dev": 0.0
+        }
+      },
+      "ok": true,
+      "time": {
+        "zero_gap_frac": 0.4394370355230812,
+        "gap_median_days": 4.0,
+        "ts_min": 1023840000,
+        "ts_max": 1406073600
+      }
+    },
+    "features": {
+      "full": {
+        "n_items": 12101,
+        "text_model": "bert-base-uncased",
+        "text_pooling": "cls",
+        "image_model": "google/vit-base-patch16-224-in21k",
+        "missing": "zeros",
+        "d_text": 768,
+        "d_img": 768,
+        "n_missing_text": 7,
+        "n_missing_img": 7
+      },
+      "limit300": {
+        "n_items": 300,
+        "text_model": "bert-base-uncased",
+        "text_pooling": "cls",
+        "image_model": "google/vit-base-patch16-224-in21k",
+        "missing": "zeros",
+        "d_text": 768,
+        "d_img": 768,
+        "n_missing_text": 1,
+        "n_missing_img": 1
+      }
+    },
+    "expected": {
+      "n_users": 22363,
+      "n_items": 12101,
+      "n_interactions": 198502
+    }
+  },
+  "sports": {
+    "stats": {
+      "n_users": 35598,
+      "n_items": 18357,
+      "n_interactions": 296337,
+      "n_interactions_raw": 296337,
+      "density": 0.00045348045456958995,
+      "seq_len_mean": 8.324540704533963,
+      "seq_len_median": 6.0,
+      "seq_len_p90": 13.0,
+      "seq_len_p95": 18.0,
+      "seq_len_max": 296,
+      "item_freq_mean": 16.142997221768262,
+      "n_train_samples": 189543,
+      "valid_target_in_history": 0,
+      "test_target_in_history": 0
+    },
+    "check": {
+      "tolerance": 0.005,
+      "fields": {
+        "n_users": {
+          "actual": 35598,
+          "expected": 35598,
+          "rel_dev": 0.0
+        },
+        "n_items": {
+          "actual": 18357,
+          "expected": 18357,
+          "rel_dev": 0.0
+        },
+        "n_interactions": {
+          "actual": 296337,
+          "expected": 296337,
+          "rel_dev": 0.0
+        }
+      },
+      "ok": true,
+      "time": {
+        "zero_gap_frac": 0.4764266181890703,
+        "gap_median_days": 2.0,
+        "ts_min": 1015459200,
+        "ts_max": 1406073600
+      }
+    },
+    "features": {},
+    "expected": {
+      "n_users": 35598,
+      "n_items": 18357,
+      "n_interactions": 296337
+    }
+  },
+  "toys": {
+    "stats": {
+      "n_users": 19412,
+      "n_items": 11924,
+      "n_interactions": 167597,
+      "n_interactions_raw": 167597,
+      "density": 0.0007240590571801228,
+      "seq_len_mean": 8.633680197815783,
+      "seq_len_median": 6.0,
+      "seq_len_p90": 14.0,
+      "seq_len_p95": 20.0,
+      "seq_len_max": 550,
+      "item_freq_mean": 14.055434417980543,
+      "n_train_samples": 109361,
+      "valid_target_in_history": 0,
+      "test_target_in_history": 0
+    },
+    "check": {
+      "tolerance": 0.005,
+      "fields": {
+        "n_users": {
+          "actual": 19412,
+          "expected": 19412,
+          "rel_dev": 0.0
+        },
+        "n_items": {
+          "actual": 11924,
+          "expected": 11924,
+          "rel_dev": 0.0
+        },
+        "n_interactions": {
+          "actual": 167597,
+          "expected": 167597,
+          "rel_dev": 0.0
+        }
+      },
+      "ok": true,
+      "time": {
+        "zero_gap_frac": 0.46883962614299696,
+        "gap_median_days": 2.0,
+        "ts_min": 964742400,
+        "ts_max": 1406073600
+      }
+    },
+    "features": {},
+    "expected": {
+      "n_users": 19412,
+      "n_items": 11924,
+      "n_interactions": 167597
+    }
+  },
+  "clothing": {
+    "stats": {
+      "n_users": 39387,
+      "n_items": 23033,
+      "n_interactions": 278677,
+      "n_interactions_raw": 278677,
+      "density": 0.0003071833809100676,
+      "seq_len_mean": 7.075354812501587,
+      "seq_len_median": 6.0,
+      "seq_len_p90": 10.0,
+      "seq_len_p95": 13.0,
+      "seq_len_max": 136,
+      "item_freq_mean": 12.099031823904832,
+      "n_train_samples": 160516,
+      "valid_target_in_history": 0,
+      "test_target_in_history": 0
+    },
+    "check": {
+      "tolerance": 0.005,
+      "fields": {
+        "n_users": {
+          "actual": 39387,
+          "expected": 39387,
+          "rel_dev": 0.0
+        },
+        "n_items": {
+          "actual": 23033,
+          "expected": 23033,
+          "rel_dev": 0.0
+        },
+        "n_interactions": {
+          "actual": 278677,
+          "expected": 278677,
+          "rel_dev": 0.0
+        }
+      },
+      "ok": true,
+      "time": {
+        "zero_gap_frac": 0.41631493167286554,
+        "gap_median_days": 10.0,
+        "ts_min": 1048896000,
+        "ts_max": 1406073600
+      }
+    },
+    "features": {},
+    "expected": {
+      "n_users": 39387,
+      "n_items": 23033,
+      "n_interactions": 278677
+    }
+  }
+}
