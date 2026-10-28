@@ -117,7 +117,19 @@
         "ts_max": 1406073600
       }
     },
-    "features": {},
+    "features": {
+      "limit300": {
+        "n_items": 300,
+        "text_model": "bert-base-uncased",
+        "text_pooling": "cls",
+        "image_model": "google/vit-base-patch16-224-in21k",
+        "missing": "zeros",
+        "d_text": 768,
+        "d_img": 768,
+        "n_missing_text": 0,
+        "n_missing_img": 0
+      }
+    },
     "expected": {
       "n_users": 35598,
       "n_items": 18357,
@@ -168,7 +180,19 @@
         "ts_max": 1406073600
       }
     },
-    "features": {},
+    "features": {
+      "limit300": {
+        "n_items": 300,
+        "text_model": "bert-base-uncased",
+        "text_pooling": "cls",
+        "image_model": "google/vit-base-patch16-224-in21k",
+        "missing": "zeros",
+        "d_text": 768,
+        "d_img": 768,
+        "n_missing_text": 0,
+        "n_missing_img": 0
+      }
+    },
     "expected": {
       "n_users": 19412,
       "n_items": 11924,
@@ -219,7 +243,19 @@
         "ts_max": 1406073600
       }
     },
-    "features": {},
+    "features": {
+      "limit300": {
+        "n_items": 300,
+        "text_model": "bert-base-uncased",
+        "text_pooling": "cls",
+        "image_model": "google/vit-base-patch16-224-in21k",
+        "missing": "zeros",
+        "d_text": 768,
+        "d_img": 768,
+        "n_missing_text": 0,
+        "n_missing_img": 10
+      }
+    },
     "expected": {
       "n_users": 39387,
       "n_items": 23033,

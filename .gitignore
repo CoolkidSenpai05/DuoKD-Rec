@@ -6,3 +6,4 @@ data/processed/
 runs/
 checkpoints/
 *.npy
+third_party/

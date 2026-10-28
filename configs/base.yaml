@@ -18,6 +18,11 @@ features:
   missing: zeros               # zeros | mean  (vector used for items missing a modality)
   batch_size: 128
   download_workers: 16
+  download_rate: 20            # max image requests / second (all threads); 0 = unlimited
+  download_timeout: 30         # seconds per request
+  download_retries: 3          # attempts per URL, exponential backoff
+  download_backoff: 1.0        # seconds, doubled after each failed attempt
+  failed_log: null             # null -> <image_dir>/failed.txt (failed_limit<K>.txt with --limit)
 
 model:
   name: duokd                  # sasrec | duokd

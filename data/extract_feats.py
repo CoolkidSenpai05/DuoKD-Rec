@@ -5,6 +5,7 @@ Outputs in `features.feat_dir` (row 0 = padding, all zeros):
   has_text.npy / has_img.npy [N+1] bool, feat_meta.json.
 Re-runnable: images are cached on disk, models run in eval mode (deterministic).
 `--limit K` processes only items 1..K and writes to `<feat_dir>_limit<K>`.
+Failed image URLs (asin, url, reason) -> `<image_dir>/failed.txt` (`failed_limit<K>.txt` with --limit).
 """
 from __future__ import annotations
 
@@ -14,7 +15,9 @@ import gzip
 import io
 import json
 import sys
+import urllib.error
 import urllib.request
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -29,10 +32,20 @@ log = get_logger("extract_feats")
 
 
 def load_meta(meta_path: Path, item2id: dict[str, int]) -> dict[int, dict]:
-    """item id -> raw metadata dict (only for kept items). Meta lines are python literals."""
+    """item id -> raw metadata dict (only for kept items). Meta lines are python literals.
+
+    The asin is read with a regex first so that only catalog items go through literal_eval
+    (lines without a matching asin pattern are still fully parsed, so the result is unchanged).
+    """
+    import re
+
+    asin_re = re.compile(r"""['"]asin['"]: ['"]([^'"]+)['"]""")
     out: dict[int, dict] = {}
     with gzip.open(meta_path, "rt") as f:
         for line in f:
+            m = asin_re.search(line)
+            if m is not None and m.group(1) not in item2id:
+                continue
             r = ast.literal_eval(line)
             if r["asin"] in item2id:
                 out[item2id[r["asin"]]] = r
@@ -53,17 +66,79 @@ def build_text(r: dict, desc_max_chars: int) -> tuple[str, bool]:
     return ". ".join(parts), bool(title or desc)
 
 
-def download_image(url: str, path: Path) -> bool:
-    if path.exists() and path.stat().st_size > 0:
-        return True
+class RateLimiter:
+    """Thread-safe limiter: at most `rate` calls per second overall (rate <= 0: unlimited)."""
+
+    def __init__(self, rate: float) -> None:
+        import threading
+
+        self.interval = 1.0 / rate if rate and rate > 0 else 0.0
+        self.lock = threading.Lock()
+        self.next_t = 0.0
+
+    def wait(self) -> None:
+        import time
+
+        if not self.interval:
+            return
+        with self.lock:
+            now = time.monotonic()
+            t = max(now, self.next_t)
+            self.next_t = t + self.interval
+        if t > now:
+            time.sleep(t - now)
+
+
+def image_ok(path: Path) -> bool:
+    """True if the file decodes: PIL verify() (structure) then a full re-open + load (pixels)."""
+    from PIL import Image
+
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = resp.read()
-        path.write_bytes(data)
+        with Image.open(path) as im:
+            im.verify()
+        with Image.open(path) as im:
+            im.convert("RGB").load()
         return True
-    except Exception:  # noqa: BLE001 - any failure = missing image
+    except Exception:  # noqa: BLE001 - any decode failure = corrupt
         return False
+
+
+def download_image(url: str, path: Path, timeout: float = 30.0, retries: int = 3, backoff: float = 1.0,
+                   limiter: RateLimiter | None = None) -> tuple[bool, str]:
+    """Resumable download with retry + exponential backoff. Returns (ok, reason).
+
+    A cached file is reused only if it decodes; a corrupt cached / downloaded file is deleted
+    (the item is then treated as missing the image).
+    """
+    import time
+
+    if path.exists() and path.stat().st_size > 0:
+        if image_ok(path):
+            return True, "cached"
+        path.unlink()
+    reason = ""
+    for attempt in range(retries):
+        if limiter is not None:
+            limiter.wait()
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = resp.read()
+            tmp = path.with_suffix(".part")
+            tmp.write_bytes(data)
+            if image_ok(tmp):
+                tmp.replace(path)
+                return True, "downloaded"
+            tmp.unlink()
+            return False, "corrupt"  # server answered with a non-image / broken file: no retry
+        except urllib.error.HTTPError as e:  # noqa: PERF203
+            reason = f"http {e.code}"
+            if e.code in (403, 404, 410):
+                break  # permanent
+        except Exception as e:  # noqa: BLE001
+            reason = type(e).__name__
+        time.sleep(backoff * 2**attempt)
+    return False, reason or "failed"
 
 
 def fill_missing(feat: np.ndarray, has: np.ndarray, strategy: str) -> None:
@@ -139,8 +214,9 @@ def main() -> None:
     ap.add_argument("--config", default="configs/base.yaml")
     ap.add_argument("--limit", type=int, default=None, help="only process items 1..limit")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--set", nargs="*", default=[], help="overrides, e.g. data.dataset=toys")
     args = ap.parse_args()
-    full = load_config(args.config)
+    full = load_config(args.config, args.set)
     set_seed(full["seed"])
     dcfg, fcfg = full["data"], full["features"]
 
@@ -167,16 +243,26 @@ def main() -> None:
     text_feat[1:] = tf
 
     # ---- images (download with cache)
-    def job(i: int) -> Path | None:
+    limiter = RateLimiter(fcfg.get("download_rate", 0))
+
+    def job(i: int) -> tuple[Path | None, str, str]:
         url = meta.get(i, {}).get("imUrl")
         if not url:
-            return None
+            return None, "", "no url"
         p = img_dir / f"{id2asin[i]}.jpg"
-        return p if download_image(url, p) else None
+        ok, reason = download_image(url, p, fcfg.get("download_timeout", 30), fcfg.get("download_retries", 3),
+                                    fcfg.get("download_backoff", 1.0), limiter)
+        return (p if ok else None), url, reason
 
     with ThreadPoolExecutor(fcfg["download_workers"]) as ex:
-        paths = list(ex.map(job, ids))
-    log.info("images: %d/%d downloaded", sum(p is not None for p in paths), n)
+        res = list(ex.map(job, ids))
+    paths = [r[0] for r in res]
+    failed = [(id2asin[i], url, reason) for i, (p, url, reason) in zip(ids, res) if p is None]
+    failed_log = resolve(fcfg.get("failed_log") or img_dir / (f"failed_limit{n}.txt" if args.limit else "failed.txt"))
+    failed_log.write_text("".join(f"{a}\t{u}\t{r}\n" for a, u, r in failed))
+    reasons = Counter(r for _, _, r in failed)
+    log.info("images: %d/%d available; failures by reason %s (-> %s)",
+             sum(p is not None for p in paths), n, dict(reasons), failed_log)
     vf, ok = image_features(paths, fcfg, args.device)
     img_feat = np.zeros((n + 1, vf.shape[1]), np.float32)
     img_feat[1:] = vf
