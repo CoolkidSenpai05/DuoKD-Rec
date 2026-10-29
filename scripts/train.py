@@ -11,7 +11,7 @@ import torch
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.build import build_loss, build_model  # noqa: E402
+from src.build import build_loss, build_model, needs_timestamps  # noqa: E402
 from src.dataset import limit_users, load_processed  # noqa: E402
 from src.trainer import Trainer  # noqa: E402
 from src.utils import get_logger, load_config, resolve, set_seed  # noqa: E402
@@ -37,11 +37,11 @@ def main() -> None:
         yaml.safe_dump(cfg, f)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    data = load_processed(cfg["data"]["processed_dir"])
+    data = load_processed(cfg["data"]["processed_dir"], with_timestamps=needs_timestamps(cfg))
     if cfg["data"].get("limit_users"):
         data = limit_users(data, cfg["data"]["limit_users"])
         log.info("SMOKE: limited to the first %d users", data["n_users"])
-    model = build_model(cfg, data["n_items"]).to(device)
+    model = build_model(cfg, data["n_items"], data).to(device)
     loss_fn = build_loss(cfg).to(device)
     log.info("params: %d", sum(p.numel() for p in model.parameters() if p.requires_grad))
     t0 = time.time()

@@ -1,0 +1,32 @@
+# HM4SR (ID + text + image + timestamps). Source: github.com/SStarCCat/HM4SR config/Games.yaml + config/data.yaml.
+# Needs <feat_dir>/categories.npy (python data/extract_categories.py --set data.dataset=<ds>).
+base: configs/base.yaml
+model:
+  name: hm4sr
+  hidden: 64                  # Games.yaml hidden_size 64
+  hm4sr:
+    n_layers: 2
+    n_heads: 2
+    inner_size: 256
+    hidden_dropout_prob: 0.5
+    attn_dropout_prob: 0.5
+    hidden_act: gelu
+    layer_norm_eps: 1.0e-12
+    initializer_range: 0.02
+    initializer_weight: [0.0, 1.0, 1.0]
+    temperature: 0.2          # IDCL
+    beta: 0.3                 # placeholder ratio
+    phcl_temperature: 1.0
+    phcl_weight: 1.0
+    start_expert_num: 4
+    temporal_expert_num: 4
+    interval_scale: 100
+    interval_num: null        # null -> log2(max input gap + 1) from train/valid inputs
+    use_target_time: false    # the official model never reads the target time (must stay false)
+train:
+  lr: 1.0e-3                  # data.yaml learning_rate
+  weight_decay: 0.0
+  batch_size: 1024            # data.yaml train_batch_size
+  grad_clip: 0
+  select_head: hm4sr
+search_space: {lr: [5.0e-4, 1.0e-3], hm4sr.beta: [0.1, 0.3, 0.5], hm4sr.phcl_weight: [0.1, 1.0], hm4sr.temperature: [0.1, 0.2, 0.5]}

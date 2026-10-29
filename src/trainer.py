@@ -13,6 +13,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from src.baselines.base import BaseSeqRec
+from src.baselines.data import TimedEvalDataset, TimedTrainDataset
 from src.dataset import EvalDataset, TrainDataset
 from src.metrics import mask_history, metrics_from_ranks, target_ranks
 
@@ -25,8 +27,11 @@ def _seed_worker(worker_id: int) -> None:
     random.seed(s)
 
 
-def make_train_loader(data: dict, cfg: dict, seed: int) -> DataLoader:
-    ds = TrainDataset(data["train_seqs"], cfg["data"]["max_len"])
+def make_train_loader(data: dict, cfg: dict, seed: int, timed: bool = False) -> DataLoader:
+    if timed:
+        ds = TimedTrainDataset(data["train_seqs"], data["train_ts"], cfg["data"]["max_len"])
+    else:
+        ds = TrainDataset(data["train_seqs"], cfg["data"]["max_len"])
     g = torch.Generator()
     g.manual_seed(seed)
     return DataLoader(ds, batch_size=cfg["train"]["batch_size"], shuffle=True, drop_last=False,
@@ -41,8 +46,9 @@ class Evaluator:
     (item frequency counted on train sequences only, never valid/test).
     """
 
-    def __init__(self, data: dict, cfg: dict, split: str) -> None:
-        self.ds = EvalDataset(data, split, cfg["data"]["max_len"])
+    def __init__(self, data: dict, cfg: dict, split: str, timed: bool = False) -> None:
+        cls = TimedEvalDataset if timed else EvalDataset
+        self.ds = cls(data, split, cfg["data"]["max_len"])
         self.n_items = data["n_items"]
         self.ecfg = cfg["eval"]
         self.loader = DataLoader(self.ds, batch_size=self.ecfg["batch_size"], shuffle=False)
@@ -60,7 +66,12 @@ class Evaluator:
             tgt = (batch["target"] - 1).to(device)
             hist = self.ds.history_mask(batch["user"], self.n_items).to(device) \
                 if self.ecfg["exclude_history"] else None
-            for head, scores in model.predict(seq).items():
+            if isinstance(model, BaseSeqRec):  # M12 baselines: score_all [B, N+1], drop padding column
+                bd = {k: v.to(device) for k, v in batch.items()}
+                head_scores = {model.name: model.score_all(bd)[:, 1:]}
+            else:
+                head_scores = model.predict(seq)
+            for head, scores in head_scores.items():
                 if hist is not None:
                     scores = mask_history(scores, hist)
                 m = metrics_from_ranks(target_ranks(scores, tgt), self.ecfg["ks"], self.ecfg["mrr"])
@@ -98,9 +109,10 @@ class Trainer:
         tcfg = cfg["train"]
         params = [p for p in list(model.parameters()) + list(loss_fn.parameters()) if p.requires_grad]
         self.opt = torch.optim.AdamW(params, lr=tcfg["lr"], weight_decay=tcfg["weight_decay"])
-        self.train_loader = make_train_loader(data, cfg, cfg["seed"])
-        self.valid = Evaluator(data, cfg, "valid")
-        self.test = Evaluator(data, cfg, "test")
+        timed = bool(getattr(model, "needs_timestamps", False))
+        self.train_loader = make_train_loader(data, cfg, cfg["seed"], timed)
+        self.valid = Evaluator(data, cfg, "valid", timed)
+        self.test = Evaluator(data, cfg, "test", timed)
         self.csv_path = out_dir / "log.csv"
         self.csv_fields: list[str] | None = None
 
@@ -113,8 +125,13 @@ class Trainer:
         n = 0
         for batch in self.train_loader:
             batch = {k: v.to(self.device, non_blocking=True) for k, v in batch.items()}
-            out = self.model(batch["seq"])
-            loss, logs = self.loss_fn(out, batch, epoch)
+            if isinstance(self.model, BaseSeqRec):  # M12 baselines own their loss
+                out = self.model.compute_loss(batch)
+                loss = out["loss"]
+                logs = {k: float(v) for k, v in out.items() if k != "loss"}
+            else:
+                out = self.model(batch["seq"])
+                loss, logs = self.loss_fn(out, batch, epoch)
             if not torch.isfinite(loss):
                 raise FloatingPointError(f"non-finite loss at epoch {epoch}: {logs}")
             self.opt.zero_grad(set_to_none=True)

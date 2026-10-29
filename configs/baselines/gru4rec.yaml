@@ -1,0 +1,16 @@
+# GRU4Rec. Source: RecBole 1.2 properties/model/GRU4Rec.yaml + properties/overall.yaml (commit in docs/baselines.md).
+base: configs/base.yaml
+model:
+  name: gru4rec
+  hidden: 64                  # embedding_size (project D = 64; RecBole default 64)
+  gru4rec:
+    hidden_size: 128          # RecBole default
+    num_layers: 1             # RecBole default
+    dropout: 0.3              # RecBole dropout_prob
+train:
+  lr: 1.0e-3                  # RecBole learner adam, learning_rate 0.001
+  weight_decay: 0.0           # RecBole default
+  batch_size: 2048            # RecBole train_batch_size default
+  grad_clip: 0                # RecBole clip_grad_norm: None
+  select_head: gru4rec
+search_space: {lr: [1.0e-3, 5.0e-4], gru4rec.hidden_size: [64, 128], gru4rec.num_layers: [1, 2], gru4rec.dropout: [0.1, 0.3, 0.5]}
